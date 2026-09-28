@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Senku’s Mackerel Quest - Full Master Edition</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Kanit', sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; }
+        
+        /* 🗺️ หน้าแผนที่ / Level Select */
+        .map-screen {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('https://i.postimg.cc/KcPjfqBz/IMG-0004.jpg') center/cover no-repeat;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 15px;
+        }
+
+        .map-title {
+            color: #fff;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            font-size: 22px;
+            text-align: center;
+            margin-top: 5px;
+            background: rgba(0,0,0,0.5);
+            padding: 6px 18px;
+            border-radius: 20px;
+            border: 2px solid #ff9800;
+        }
+
+        /* 📍 จุดปักหมุดด่านบนแผนที่ */
+        .levels-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 400px;
+            margin: auto 0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .level-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid #ff9800;
+            border-radius: 14px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+        .level-card:active { transform: scale(0.96); }
+        
+        .level-card.locked {
+            background: rgba(200, 200, 200, 0.7);
+            border-color: #a0aec0;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .level-info { display: flex; flex-direction: column; }
+        .level-name { font-size: 15px; font-weight: bold; color: #2d3748; }
+        .level-desc { font-size: 11px; color: #718096; }
+        .level-status { font-size: 20px; }
+
+        /* 🎮 หน้าจอเล่นเกม */
+        .game-screen {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+        }
+
+        .top-btn {
+            position: absolute;
+            top: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #ff9800;
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .music-btn { right: 15px; }
+        .home-btn { left: 15px; }
+
+        audio { display: none; }
+
+        @keyframes breathing {
+            0% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-7px) scale(1.02); }
+            100% { transform: translateY(0px) scale(1); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .character-img {
+            max-width: 240px;
+            max-height: 34vh;
+            object-fit: contain;
+            filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.4));
+            margin-top: auto;
+            transition: all 0.3s ease;
+            animation: breathing 2.5s ease-in-out infinite;
+        }
+
+        .character-img.bounce {
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), breathing 2.5s ease-in-out infinite 0.35s;
+        }
+
+        .dialogue-box {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 3px solid #ff9800;
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-top: 8px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .narrative-text { font-size: 15px; color: #2d3748; line-height: 1.4; min-height: 40px; }
+        .interactive-zone { margin: 8px 0; min-height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        .word-opt { background: #e0f2f1; border: 2px solid #80cbd4; padding: 6px 14px; margin: 3px; border-radius: 20px; cursor: pointer; font-weight: bold; color: #00695c; display: inline-block; font-size: 14px; }
+        .word-card { background: #fff3e0; border: 1px solid #ffe0b2; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 3px; display: inline-block; font-size: 14px; }
+        
+        .match-grid { display: flex; gap: 20px; justify-content: center; align-items: center; width: 100%; }
+        .match-col { display: flex; flex-direction: column; gap: 8px; }
+        
+        .item-card { 
+            background: #ffffff; border: 2px solid #cbd5e0; border-radius: 12px; 
+            padding: 8px 16px; font-size: 24px; cursor: pointer; transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .item-card.selected { border-color: #ff9800; background: #fff3e0; transform: scale(1.08); box-shadow: 0 0 10px rgba(255,152,0,0.5); }
+        .item-card.matched { border-color: #48bb78; background: #c6f6d5; opacity: 0.5; pointer-events: none; }
+
+        .word-target-card {
+            background: #edf2f7; border: 2px solid #cbd5e0; border-radius: 12px;
+            padding: 10px 16px; font-size: 14px; font-weight: bold; color: #2d3748;
+            cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .word-target-card.matched { border-color: #48bb78; background: #c6f6d5; opacity: 0.5; pointer-events: none; }
+
+        .btn-next {
+            background: #ff9800; color: white; border: none; padding: 10px 24px;
+            border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255,152,0,0.4); margin-top: 6px; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map-screen" class="map-screen">
+    <button class="top-btn music-btn" onclick="toggleMusic()">🔊</button>
+    <div class="map-title">🗺️ Senku's World Map</div>
+
+    <div class="levels-container">
+        <div class="level-card" onclick="startLevel('prologue')">
+            <div class="level-info">
+                <span class="level-name">Prologue: The Beginning 🐾</span>
+                <span class="level-desc">จุดเริ่มต้นและการเตรียมตัวที่บ้าน</span>
+            </div>
+            <span class="level-status" id="status-prologue">▶️</span>
+        </div>
+
+        <div class="level-card locked" id="card-ch1" onclick="startLevel('ch1')">
+            <div class="level-info">
+                <span class="level-name">Chapter 1: Town Journey 🚌</span>
+                <span class="level-desc">ถามทางและขึ้นรถบัสในเมืองใหญ่</span>
+            </div>
+            <span class="level-status" id="status-ch1">🔒</span>
+        </div>
+
+        <div class="level-card locked" id="card-ch2" onclick="startLevel('ch2')">
+            <div class="level-info">
+                <span class="level-name">Chapter 2: Deep Forest Trail 🧭</span>
+                <span class="level-desc">เลือกทางแยกและทิศทางผ่านป่าสู่ท่าเรือ</span>
+            </div>
+            <span class="level-status" id="status-ch2">🔒</span>
+        </div>
+
+        <div class="level-card locked" id="card-ch3" onclick="startLevel('ch3')">
+            <div class="level-info">
+                <span class="level-name">Chapter 3: Stormy Ocean ⛈️</span>
+                <span class="level-desc">ขึ้นเรือฝ่าพายุและอับปางสู่เกาะปริศนา</span>
+            </div>
+            <span class="level-status" id="status-ch3">🔒</span>
+        </div>
+
+        <div class="level-card locked" id="card-ch4" onclick="startLevel('ch4')">
+            <div class="level-info">
+                <span class="level-name">Chapter 4: Candy Island Shipbuilder 🍭🔨</span>
+                <span class="level-desc">สำรวจเกาะแคนดี้และรวบรวมไม้สร้างเรือใหม่</span>
+            </div>
+            <span class="level-status" id="status-ch4">🔒</span>
+        </div>
+    </div>
+</div>
+
+<div id="game-screen" class="game-screen">
+    <button class="top-btn home-btn" onclick="goHome()">🏠</button>
+    <button id="music-toggle" class="top-btn music-btn" onclick="toggleMusic()">🔊</button>
+
+    <img id="cat-sprite" src="https://i.ibb.co/6V6NfBC/image.jpg" alt="Senku" class="character-img">
+
+    <div class="dialogue-box">
+        <div id="narrative" class="narrative-text"></div>
+        <div id="interactive" class="interactive-zone"></div>
+        <button id="main-btn" class="btn-next" onclick="nextSlide()">ถัดไป 🐾</button>
+    </div>
+</div>
+
+<audio id="bgm" loop preload="auto">
+    <source src="https://mp3tourl.com/audio/1788522332876-4d9f9c23-6379-4572-a705-3ecc7a1d1373.mp3" type="audio/mpeg">
+</audio>
+<audio id="sfx-correct" preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3" type="audio/mpeg">
+</audio>
+<audio id="sfx-wrong" preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+let isCh1Unlocked = false;
+let isCh2Unlocked = false;
+let isCh3Unlocked = false;
+let isCh4Unlocked = false;
+let currentLevelKey = '';
+
+/* Prologue Full */
+const prologueData = [
+    { bg: "https://i.postimg.cc/sDJn8jKC/IMG-0006.jpg", cat: "https://i.postimg.cc/y8vbJ1S3/IMG-0024.png", text: "บ่ายวันหยุดอันแสนสงบ... เจ้าเหมียวดำเซ็นคูกำลังนอนหลับปุ๋ยอย่างมีความสุขบนเบาะนุ่ม ☀️", type: "normal" },
+    { bg: "https://i.postimg.cc/sDJn8jKC/IMG-0006.jpg", cat: "https://i.postimg.cc/y8vbJ1S3/IMG-0024.png", text: "<i>'จิ๊บๆ! จิ๊บๆ!'</i> มีเสียงพูดคุยดังมาจากกิ่งไม้ใหญ่ข้างหน้าต่าง หูของเซ็นคูกระดิกเบาๆ 🐦", type: "normal" },
+    { bg: "https://i.postimg.cc/sxHMQZy4/IMG-0004.jpg", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "<b>นกกระจอก:</b> 'Have you heard about the legendary [ ??? ] Island?'", type: "q_mackerel" },
+    { bg: "https://i.postimg.cc/XYpysKnR/IMG-0007.jpg", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "เซ็นคูผุดลุกขึ้นนั่งตาโต! เกาะที่มีปลาทูเนื้อแน่นลอยเต็มทะเล... นี่มันสวรรค์ชัดๆ! 🐟✨", type: "normal" },
+    { bg: "https://i.postimg.cc/XYpysKnR/IMG-0007.jpg", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "หัวใจของเซ็นคูเต้นตึกตัก! <b>Senku feels very [ ??? ]!</b>", type: "q_feeling" },
+    { bg: "https://i.postimg.cc/XYpysKnR/IMG-0007.jpg", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "เซ็นคู: 'ข้าตัดสินใจแล้ว! กัปตันเซ็นคูจะออกเดินทางไปเกาะปลาทูเดี๋ยวนี้ล่ะ!' 🐾", type: "normal" },
+    { bg: "https://i.postimg.cc/fyqRdFtB/IMG-0009.jpg", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ก่อนเดินทางต้องหาอุปกรณ์ใส่อุปกรณ์! <b>I need a [ ??? ] to carry items.</b>", type: "q_backpack" },
+    { bg: "https://i.postimg.cc/XJQjMh8w/IMG-0010.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูย่องไปดูใต้โต๊ะ... เจอเป้ใบเก่าสีน้ำตาลพร้อมใช้งานพอดี! 🎒", type: "normal" },
+    { bg: "https://i.postimg.cc/XJQjMh8w/IMG-0010.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "🎒 <b>จัดเป้ผจญภัย!</b> แตะที่ <u>รูปภาพ</u> ก่อน แล้วค่อยแตะ <u>คำศัพท์</u> ให้ตรงกันนะฮะ", type: "prologue_matching" },
+    { bg: "https://i.postimg.cc/13GZh2R6/IMG-0012.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ได้เวลาแต่งตัว! เซ็นคูเดินไปเปิดตู้เสื้อผ้าไม้เพื่อหาชุดเก่ง 🚪", type: "normal" },
+    { bg: "https://i.postimg.cc/ZnB1fDDb/IMG-0013.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูคาบผ้าพันคอตัวโปรดออกมา! <b>Senku wears an [ ??? ] scarf.</b>", type: "q_scarf" },
+    { bg: "https://i.postimg.cc/d0QQWw24/IMG-0014.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "กระโดดขึ้นไปส่องกระจก... ผูกผ้าพันคอสีส้มสดใส เท่สุดๆ ไปเลย! 😎", type: "normal" },
+    { bg: "https://i.postimg.cc/ryRVZh4k/IMG-0015.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เดินทางไกลท้องต้องอิ่ม! <b>Where is the food? Look inside the [ ??? ].</b>", type: "q_pantry" },
+    { bg: "https://i.postimg.cc/ryRVZh4k/IMG-0015.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เลือกเสบียงใส่เป้ไปกินระหว่างทาง: <b>I bring dried [ ??? ] for lunch!</b>", type: "q_snack" },
+    { bg: "https://i.postimg.cc/ryRVZh4k/IMG-0015.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เป้พร้อม! ผ้าพันคอพร้อม! เสบียงพร้อม! กัปตันเซ็นคูพร้อมลุยแล้ว! 🎒✨", type: "normal" },
+    { bg: "https://i.postimg.cc/KcPjfqBz/IMG-0004.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูกระโดดกลับไปที่ขอบหน้าต่าง นกกระจอกยังคงส่งเสียงคุยกันอยู่", type: "normal" },
+    { bg: "https://i.postimg.cc/KcPjfqBz/IMG-0004.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ทักทายอย่างสุภาพก่อนถามทาง: <b>[ ??? ], can I ask a question?</b>", type: "q_greeting" },
+    { bg: "https://i.postimg.cc/KcPjfqBz/IMG-0004.jpg", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ช่วยเซ็นคูเรียงประโยคเพื่อถามทางไปเกาะปลาทูหน่อย!", type: "sentence_prologue" },
+    { bg: "https://i.postimg.cc/hPKYQvc5/IMG-0017.jpg", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "<b>นกกระจอก:</b> 'ถ้านายอยากไป ต้องผ่านเมืองไปต่อที่ป่าลึกนะ!' 🗺️⛵", type: "normal" },
+    { bg: "https://i.postimg.cc/fyqRdFtB/IMG-0009.jpg", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "เซ็นคูวิ่งมุ่งหน้าสู่ประตูหน้าบ้าน... ออกเดินทางได้! 🎉", type: "end" }
+];
+
+/* Chapter 1: Town Journey (ถามทางขึ้นรถบัส) */
+const ch1Data = [
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูเดินทางมาถึงตัวเมืองอันคึกคัก มีรถและผู้คนมากมายเดินไปมา 🏙️", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูต้องการเดินทางไปทางเข้าป่าลึก จึงต้องหาป้ายรถบัส!<br><b>Where is the [ ??? ] stop?</b>", type: "q_bus" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "เซ็นคูเดินเข้าไปถามทางตำรวจจราจรด้วยความสุภาพ<br><b>[ ??? ], how can I get to the bus stop?</b>", type: "q_excuse" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "<b>คุณตำรวจ:</b> 'Walk straight and turn [ ??? ].' (เลี้ยวซ้ายตรงหัวมุมนะ)", type: "q_left" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ช่วยเซ็นคูแต่งประโยคสอบถามสายรถบัสที่จะไปชายป่า!", type: "sentence_ch1_1" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "รถบัสมาจอดพอดี! เซ็นคูหยิบเหรียญออกมาซื้อตั๋ว<br><b>Senku buys a bus [ ??? ].</b>", type: "q_ticket" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "🧳 <b>จับคู่คำศัพท์การเดินทางในเมือง!</b>", type: "ch1_matching" },
+    { bg: "https://images.unsplash.com/photo-1477959858617-67f30ac4ce78?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ช่วยเซ็นคูแต่งประโยคบอกเล่าการขึ้นรถบัสเดินทาง!", type: "sentence_ch1_2" },
+    { bg: "https://images.unsplash.com/photo-1505705694340-019e1e335916?q=80&w=1000", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "รถบัสขับพาเซ็นคูออกจากเมือง มาจอดลงที่ทางเข้าป่าลึกเรียบร้อย! 🚌🌲", type: "end" }
+];
+
+/* Chapter 2: The Deep Forest (สำรวจป่า/บอกทิศทาง) */
+const ch2Data = [
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูก้าวเข้าสู่ป่าลึก บรรยากาศเงียบสงบและมีต้นไม้ใหญ่เขียวขจี 🌳", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูหยิบเข็มทิศขึ้นมาดูทิศทาง!<br><b>Which direction is the harbour? Go [ ??? ].</b> (ทิศเหนือ)", type: "q_north" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "เดินมาเจอทางแยก 2 ทาง! ด้านซ้ายกับด้านขวา<br><b>Senku chooses the [ ??? ] path.</b> (เส้นทางขวา)", type: "q_right_path" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ช่วยเซ็นคูเรียงประโยคเพื่อใช้เข็มทิศนำทางในป่า!", type: "sentence_ch2_1" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ระหว่างทางเจอกระรอกน้อยชี้บอกทางไปชายหาด!<br><b>The beach is in the [ ??? ].</b> (ทิศตะวันออก)", type: "q_east" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "🌲 <b>จับคู่สิ่งต่างๆ ที่พบในป่าลึก!</b>", type: "ch2_matching" },
+    { bg: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ช่วยเซ็นคูแต่งประโยคยืนยันการเดินตามเส้นทางป่า!", type: "sentence_ch2_2" },
+    { bg: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "ทะลุผ่านป่าสำเร็จ! เสียงคลื่นทะเลดังขึ้น เซ็นคูมองเห็นท่าเรือแล้ว! ⛵🌊", type: "end" }
+];
+
+/* Chapter 3: Stormy Ocean (พบท่าเรือ ขึ้นเรือ และพายุล่มเรือ) */
+const ch3Data = [
+    { bg: "https://images.unsplash.com/photo-1505705694340-019e1e335916?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูเดินมาถึงท่าเรืออันกว้างใหญ่ มีเรือจอดอยู่หลายลำ ⛵", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1505705694340-019e1e335916?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เซ็นคูก้าวขึ้นเรือใบไม้ลำเล็ก<br><b>Senku gets on the wooden [ ??? ].</b>", type: "q_ship" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "แล่นเรือออกสู่ทะเลลึก ท้องฟ้าเริ่มมืดสนิท ลมพัดแรงกระหน่ำ! ⚡🌧️", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "มีพายุและคลื่นยักษ์ซัดเข้ามา!<br><b>A dangerous [ ??? ] hits the boat!</b>", type: "q_storm_ch3" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ช่วยเซ็นคูเรียงประโยคเตือนภัยคลื่นยักษ์กลางทะเล!", type: "sentence_ch3_1" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "<i>ตู้มมม!</i> คลื่นยักษ์ทำลายเรือจนสลายไป! เซ็นคูลอยคอกลางกระแสน้ำ 🌊", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "⛈️ <b>จับคู่เหตุการณ์และสิ่งของกลางพายุ!</b>", type: "ch3_matching" },
+    { bg: "https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ช่วยเซ็นคูเรียงประโยคสรุปเหตุการณ์เรืออับปาง!", type: "sentence_ch3_2" },
+    { bg: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "กระแสน้ำพัดร่างของเซ็นคูมาสลบบนชายหาดของเกาะปริศนาแห่งหนึ่ง... 🏝️", type: "end" }
+];
+
+/* Chapter 4: Candy Island Shipbuilder (เกาะแคนดี้และการสร้างเรือใหม่) */
+const ch4Data = [
+    { bg: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1000", cat: "https://i.postimg.cc/y8vbJ1S3/IMG-0024.png", text: "เซ็นคูค่อยๆ ตื่นขึ้นมาพบกับทรายสีชมพูและกลิ่นหอมหวานของน้ำตาล! 🍭", type: "normal" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "นี่คือเกาะขนมหวานในตำนาน!<br><b>This is the secret [ ??? ] Island!</b>", type: "q_candy_ch4" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "เรือลำเก่าพังไปแล้ว เซ็นคูต้องรวบรวมไม้เพื่อสร้างเรือลำใหม่!<br><b>I must collect [ ??? ] to build a new boat.</b>", type: "q_wood" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/prFmF66Z/IMG-0019.png", text: "ช่วยเซ็นคูเรียงประโยคบอกภารกิจการสร้างเรือ!", type: "sentence_ch4_1" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "เซ็นคูใช้เครื่องมือประกอบท่อนไม้เข้าด้วยกัน!<br><b>Senku uses a [ ??? ] to build the raft.</b> (ค้อน)", type: "q_hammer" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "🔨 <b>จับคู่เครื่องมือและวัตถุดิบสร้างเรือ!</b>", type: "ch4_matching" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/8zp1QCS1/IMG-0027.png", text: "ช่วยเซ็นคูเรียงประโยคเพื่อเตรียมพร้อมออกเรือลำใหม่!", type: "sentence_ch4_2" },
+    { bg: "https://images.unsplash.com/photo-1581795669633-91ef7c9699a8?q=80&w=1000", cat: "https://i.postimg.cc/TYR8hHHn/IMG-0028.png", text: "เรือลำใหม่แข็งแรงสวยงามพร้อมแล้ว! กัปตันเซ็นคูพร้อมออกแล่นเรือต่อแล้ว! ⛵✨", type: "end" }
+];
+
+let activeStory = [];
+let currentSlide = 0;
+let userSentence = [];
+
+/* รายการจับคู่ไอเทม */
+const prologueMatchIconList = [{ id: 'notebook', icon: '📝' }, { id: 'compass', icon: '🧭' }, { id: 'water', icon: '💧' }];
+const prologueMatchWordList = [{ id: 'compass', word: 'Compass' }, { id: 'notebook', word: 'Notebook' }, { id: 'water', word: 'Water' }];
+
+const ch1MatchIconList = [{ id: 'bus', icon: '🚌' }, { id: 'ticket', icon: '🎟️' }, { id: 'stop', icon: '🚏' }];
+const ch1MatchWordList = [{ id: 'ticket', word: 'Ticket' }, { id: 'bus', word: 'Bus' }, { id: 'stop', word: 'Bus Stop' }];
+
+const ch2MatchIconList = [{ id: 'tree', icon: '🌲' }, { id: 'compass', icon: '🧭' }, { id: 'path', icon: '🛣️' }];
+const ch2MatchWordList = [{ id: 'compass', word: 'Compass' }, { id: 'path', word: 'Right Path' }, { id: 'tree', word: 'Big Tree' }];
+
+const ch3MatchIconList = [{ id: 'ship', icon: '⛵' }, { id: 'wave', icon: '🌊' }, { id: 'storm', icon: '⛈️' }];
+const ch3MatchWordList = [{ id: 'wave', word: 'Huge Wave' }, { id: 'ship', word: 'Wooden Ship' }, { id: 'storm', word: 'Dark Storm' }];
+
+const ch4MatchIconList = [{ id: 'wood', icon: '🪵' }, { id: 'hammer', icon: '🔨' }, { id: 'candy', icon: '🍬' }];
+const ch4MatchWordList = [{ id: 'hammer', word: 'Hammer' }, { id: 'candy', word: 'Sweet Candy' }, { id: 'wood', word: 'Wood Logs' }];
+
+let selectedIconId = null;
+let matchedPairCount = 0;
+
+const bgm = document.getElementById('bgm');
+const sfxCorrect = document.getElementById('sfx-correct');
+const sfxWrong = document.getElementById('sfx-wrong');
+const musicBtns = document.querySelectorAll('.music-btn');
+
+let isPlaying = false;
+let userHasToggled = false;
+
+function playSFX(type) {
+    const sfx = (type === 'correct') ? sfxCorrect : sfxWrong;
+    sfx.pause();
+    sfx.currentTime = 0;
+    sfx.play().catch(() => {});
+}
+
+function toggleMusic() {
+    userHasToggled = true;
+    if (isPlaying) {
+        bgm.pause();
+        musicBtns.forEach(b => b.innerText = '🔇');
+        isPlaying = false;
+    } else {
+        bgm.play();
+        musicBtns.forEach(b => b.innerText = '🔊');
+        isPlaying = true;
+    }
+}
+
+function handleFirstClick() {
+    sfxCorrect.load();
+    sfxWrong.load();
+    if (!isPlaying && !userHasToggled) {
+        bgm.play().then(() => {
+            isPlaying = true;
+            musicBtns.forEach(b => b.innerText = '🔊');
+        }).catch(() => {});
+    }
+}
+
+window.addEventListener('click', handleFirstClick, { once: true });
+window.addEventListener('touchstart', handleFirstClick, { once: true });
+
+function startLevel(levelKey) {
+    if (levelKey === 'ch1' && !isCh1Unlocked) return alert('เล่น Prologue ให้จบเพื่อปลดล็อก Chapter 1!');
+    if (levelKey === 'ch2' && !isCh2Unlocked) return alert('เล่น Chapter 1 ให้จบก่อนนะฮะ!');
+    if (levelKey === 'ch3' && !isCh3Unlocked) return alert('เล่น Chapter 2 ให้จบก่อนนะฮะ!');
+    if (levelKey === 'ch4' && !isCh4Unlocked) return alert('เล่น Chapter 3 ให้จบก่อนนะฮะ!');
+
+    currentLevelKey = levelKey;
+    if (levelKey === 'prologue') activeStory = prologueData;
+    else if (levelKey === 'ch1') activeStory = ch1Data;
+    else if (levelKey === 'ch2') activeStory = ch2Data;
+    else if (levelKey === 'ch3') activeStory = ch3Data;
+    else if (levelKey === 'ch4') activeStory = ch4Data;
+    
+    document.getElementById('map-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
+    currentSlide = 0;
+    renderSlide();
+}
+
+function goHome() {
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('map-screen').style.display = 'flex';
+}
+
+function renderSlide() {
+    const slide = activeStory[currentSlide];
+    const screen = document.getElementById('game-screen');
+    const cat = document.getElementById('cat-sprite');
+    const narrative = document.getElementById('narrative');
+    const interactive = document.getElementById('interactive');
+    const mainBtn = document.getElementById('main-btn');
+
+    screen.style.backgroundImage = `url('${slide.bg}')`;
+    
+    cat.src = slide.cat;
+    cat.classList.remove('bounce');
+    void cat.offsetWidth;
+    cat.classList.add('bounce');
+
+    narrative.innerHTML = slide.text;
+    interactive.innerHTML = '';
+
+    if (slide.type === 'normal') {
+        mainBtn.style.display = 'block';
+        mainBtn.innerText = 'ถัดไป 🐾';
+    } 
+    /* Prologue Nodes */
+    else if (slide.type === 'q_mackerel') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="wrongChoice()">Apple</span><span class="word-opt" onclick="wrongChoice()">Koh Keaw Phitsadan</span><span class="word-opt" onclick="checkChoice('Mackerel', 3, 'ถูกต้อง! 🐟 เกาะปลาทู!')">Mackerel</span> </div>`;
+    }
+    else if (slide.type === 'q_feeling') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('Excited', 5, 'ถูกต้อง! 🤩 ตื่นเต้นสุดๆ!')">Excited</span><span class="word-opt" onclick="wrongChoice()">Sleepy</span><span class="word-opt" onclick="wrongChoice()">Sad</span></div>`;
+    }
+    else if (slide.type === 'q_backpack') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="wrongChoice()">Pencil</span><span class="word-opt" onclick="checkChoice('Backpack', 7, 'ถูกต้อง! 🎒 กระเป๋าเป้!')">Backpack</span><span class="word-opt" onclick="wrongChoice()">Hat</span></div>`;
+    }
+    else if (slide.type === 'prologue_matching') {
+        mainBtn.style.display = 'none';
+        renderMatchingGame(prologueMatchIconList, prologueMatchWordList, 9);
+    }
+    else if (slide.type === 'q_scarf') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('Orange', 11, 'ถูกต้อง! 🟧 ผ้าพันคอสีส้ม!')">Orange</span><span class="word-opt" onclick="wrongChoice()">Blue</span><span class="word-opt" onclick="wrongChoice()">Green</span></div>`;
+    }
+    else if (slide.type === 'q_pantry') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('Kitchen', 13, 'ถูกต้อง! 🍳 ห้องครัว!')">Kitchen</span><span class="word-opt" onclick="wrongChoice()">Bathroom</span><span class="word-opt" onclick="wrongChoice()">Bedroom</span></div>`;
+    }
+    else if (slide.type === 'q_snack') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('Fish', 14, 'ถูกต้อง! 🐟 ปลาทูตากแห้ง!')">Fish</span><span class="word-opt" onclick="wrongChoice()">Candy</span><span class="word-opt" onclick="wrongChoice()">Cake</span></div>`;
+    }
+    else if (slide.type === 'q_greeting') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="wrongChoice()">Yo</span><span class="word-opt" onclick="checkChoice('Excuse me', 17, 'ถูกต้อง! 🙏 ขอโทษนะครับ!')">Excuse me</span><span class="word-opt" onclick="wrongChoice()">Bye</span></div>`;
+    }
+    else if (slide.type === 'sentence_prologue') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["where is", "Excuse me,", "the Mackerel Island?"], ["Excuse me,", "where is", "the Mackerel Island?"], 18);
+    }
+
+    /* Chapter 1 Nodes (Town Journey) */
+    else if (slide.type === 'q_bus') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('bus', 2, 'ถูกต้อง! 🚌 ป้ายรถบัส!')">bus</span><span class="word-opt" onclick="wrongChoice()">train</span><span class="word-opt" onclick="wrongChoice()">plane</span></div>`;
+    }
+    else if (slide.type === 'q_excuse') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt"onclick="wrongChoice()">Yo bro</span><span class="word-opt" onclick="checkChoice('Excuse me', 3, 'ถูกต้อง! 🙏 ขอโทษนะครับ!')">Excuse me</span><span class="word-opt" onclick="wrongChoice()">Goodbye</span></div>`;
+    }
+    else if (slide.type === 'q_left') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="wrongChoice()">right</span><span class="word-opt" onclick="wrongChoice()">straight</span><span class="word-opt" onclick="checkChoice('left', 4, 'ถูกต้อง! 👈 เลี้ยวซ้าย!')">left</span></div>`;
+    }
+    else if (slide.type === 'sentence_ch1_1') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["Where is", "for the forest?", "the bus stop"], ["Where is", "the bus stop", "for the forest?"], 5);
+    }
+    else if (slide.type === 'q_ticket') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('ticket', 6, 'ถูกต้อง! 🎟️ ตั๋วรถบัส!')">ticket</span><span class="word-opt" onclick="wrongChoice()">book</span><span class="word-opt" onclick="wrongChoice()">bill</span></div>`;
+    }
+    else if (slide.type === 'ch1_matching') {
+        mainBtn.style.display = 'none';
+        renderMatchingGame(ch1MatchIconList, ch1MatchWordList, 7);
+    }
+    else if (slide.type === 'sentence_ch1_2') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["the bus", "to the forest.", "Senku takes"], ["Senku takes", "the bus", "to the forest."], 8);
+    }
+
+    /* Chapter 2 Nodes (The Deep Forest) */
+    else if (slide.type === 'q_north') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('North', 2, 'ถูกต้อง! 🧭 มุ่งหน้าทิศเหนือ!')">North</span><span class="word-opt" onclick="wrongChoice()">South</span></div>`;
+    }
+    else if (slide.type === 'q_right_path') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('right', 3, 'ถูกต้อง! 👉 เลือกทางขวา!')">right</span><span class="word-opt" onclick="wrongChoice()">left</span></div>`;
+    }
+    else if (slide.type === 'sentence_ch2_1') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["in the forest.", "to find North", "Use the compass"], ["Use the compass", "to find North", "in the forest."], 4);
+    }
+    else if (slide.type === 'q_east') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('East', 5, 'ถูกต้อง! ☀️ ทิศตะวันออก!')">East</span><span class="word-opt" onclick="wrongChoice()">West</span></div>`;
+    }
+    else if (slide.type === 'ch2_matching') {
+        mainBtn.style.display = 'none';
+        renderMatchingGame(ch2MatchIconList, ch2MatchWordList, 6);
+    }
+    else if (slide.type === 'sentence_ch2_2') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["to the harbour.", "the forest", "Senku walks through"], ["Senku walks through", "the forest", "to the harbour."], 7);
+    }
+
+    /* Chapter 3 Nodes (Stormy Ocean) */
+    else if (slide.type === 'q_ship') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('ship', 2, 'ถูกต้อง! ⛵ เรือไม้!')">ship</span><span class="word-opt" onclick="wrongChoice()">car</span></div>`;
+    }
+    else if (slide.type === 'q_storm_ch3') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('storm', 4, 'ถูกต้อง! ⛈️ พายุยักษ์!')">storm</span><span class="word-opt" onclick="wrongChoice()">sunshine</span></div>`;
+    }
+    else if (slide.type === 'sentence_ch3_1') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["the big waves", "in the ocean!", "Beware of"], ["Beware of", "the big waves", "in the ocean!"], 5);
+    }
+    else if (slide.type === 'ch3_matching') {
+        mainBtn.style.display = 'none';
+        renderMatchingGame(ch3MatchIconList, ch3MatchWordList, 7);
+    }
+    else if (slide.type === 'sentence_ch3_2') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["in the sea.", "The strong storm", "sinks the ship"], ["The strong storm", "sinks the ship", "in the sea."], 8);
+    }
+
+    /* Chapter 4 Nodes (Candy Island Shipbuilder) */
+    else if (slide.type === 'q_candy_ch4') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('Candy', 2, 'ถูกต้อง! 🍭 เกาะแคนดี้!')">Candy</span><span class="word-opt" onclick="wrongChoice()">Rock</span></div>`;
+    }
+    else if (slide.type === 'q_wood') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('wood', 3, 'ถูกต้อง! 🪵 เก็บไม้สร้างเรือ!')">wood</span><span class="word-opt" onclick="wrongChoice()">sand</span></div>`;
+    }
+    else if (slide.type === 'sentence_ch4_1') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["a new raft", "with wood logs.", "I need to build"], ["I need to build", "a new raft", "with wood logs."], 4);
+    }
+    else if (slide.type === 'q_hammer') {
+        mainBtn.style.display = 'none';
+        interactive.innerHTML = `<div><span class="word-opt" onclick="checkChoice('hammer', 5, 'ถูกต้อง! 🔨 ใช้ค้อนตอกไม้!')">hammer</span><span class="word-opt" onclick="wrongChoice()">spoon</span></div>`;
+    }
+    else if (slide.type === 'ch4_matching') {
+        mainBtn.style.display = 'none';
+        renderMatchingGame(ch4MatchIconList, ch4MatchWordList, 6);
+    }
+    else if (slide.type === 'sentence_ch4_2') {
+        mainBtn.style.display = 'none';
+        renderSentenceGame(["the new boat", "Senku completes", "to sail again."], ["Senku completes", "the new boat", "to sail again."], 7);
+    }
+
+    else if (slide.type === 'end') {
+        mainBtn.style.display = 'block';
+        mainBtn.innerText = 'กลับสู่ World Map 🗺️';
+    }
+}
+
+function checkChoice(val, targetSlide, msg) {
+    playSFX('correct');
+    setTimeout(() => {
+        alert(msg);
+        currentSlide = targetSlide;
+        renderSlide();
+    }, 50);
+}
+
+function wrongChoice() {
+    playSFX('wrong');
+    setTimeout(() => {
+        alert('ยังไม่ใช่นะฮะ! ลองใหม่อีกที');
+    }, 50);
+}
+
+function nextSlide() {
+    if (currentSlide < activeStory.length - 1) {
+        currentSlide++;
+        renderSlide();
+    } else {
+        playSFX('correct');
+        
+        if (currentLevelKey === 'prologue') {
+            isCh1Unlocked = true;
+            document.getElementById('card-ch1').classList.remove('locked');
+            document.getElementById('status-prologue').innerText = '✅';
+            document.getElementById('status-ch1').innerText = '▶️';
+            alert("🎉 ยินดีด้วย! จบ Prologue และปลดล็อก Chapter 1 เรียบร้อยแล้ว!");
+        } else if (currentLevelKey === 'ch1') {
+            isCh2Unlocked = true;
+            document.getElementById('card-ch2').classList.remove('locked');
+            document.getElementById('status-ch1').innerText = '✅';
+            document.getElementById('status-ch2').innerText = '▶️';
+            alert("🎉 ปลดล็อก Chapter 2 เรียบร้อยแล้ว!");
+        } else if (currentLevelKey === 'ch2') {
+            isCh3Unlocked = true;
+            document.getElementById('card-ch3').classList.remove('locked');
+            document.getElementById('status-ch2').innerText = '✅';
+            document.getElementById('status-ch3').innerText = '▶️';
+            alert("🎉 ปลดล็อก Chapter 3 เรียบร้อยแล้ว!");
+        } else if (currentLevelKey === 'ch3') {
+            isCh4Unlocked = true;
+            document.getElementById('card-ch4').classList.remove('locked');
+            document.getElementById('status-ch3').innerText = '✅';
+            document.getElementById('status-ch4').innerText = '▶️';
+            alert("🎉 ปลดล็อก Chapter 4 เรียบร้อยแล้ว!");
+        } else if (currentLevelKey === 'ch4') {
+            document.getElementById('status-ch4').innerText = '✅';
+            alert("🎉 ยินดีด้วย! คุณเก่งมาก ผ่านการสร้างเรือใน Chapter 4 เรียบร้อยแล้ว!");
+        }
+        goHome();
+    }
+}
+
+function renderMatchingGame(icons, words, targetSlideNext) {
+    const interactive = document.getElementById('interactive');
+    selectedIconId = null;
+    matchedPairCount = 0;
+
+    interactive.innerHTML = `
+        <div class="match-grid">
+            <div class="match-col">
+                ${icons.map(item => `<div class="item-card" id="img-${item.id}" onclick="selectIcon('${item.id}')">${item.icon}</div>`).join('')}
+            </div>
+            <div class="match-col">
+                ${words.map(item => `<div class="word-target-card" id="word-${item.id}" onclick="selectWord('${item.id}', ${icons.length}, ${targetSlideNext})">${item.word}</div>`).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function selectIcon(id) {
+    document.querySelectorAll('.item-card').forEach(el => {
+        if (!el.classList.contains('matched')) el.classList.remove('selected');
+    });
+
+    const selectedEl = document.getElementById(`img-${id}`);
+    if (!selectedEl.classList.contains('matched')) {
+        selectedEl.classList.add('selected');
+        selectedIconId = id;
+    }
+}
+
+function selectWord(id, totalPairs, targetSlideNext) {
+    if (!selectedIconId) return alert("กดเลือกรูปภาพฝั่งซ้ายก่อนนะฮะ! 👈");
+
+    if (selectedIconId === id) {
+        playSFX('correct');
+        document.getElementById(`img-${id}`).classList.remove('selected');
+        document.getElementById(`img-${id}`).classList.add('matched');
+        document.getElementById(`word-${id}`).classList.add('matched');
+        selectedIconId = null;
+        matchedPairCount++;
+
+        if (matchedPairCount === totalPairs) {
+            setTimeout(() => {
+                alert("เก่งมาก! จับคู่ถูกต้องทั้งหมด! ✨");
+                currentSlide = targetSlideNext;
+                renderSlide();
+            }, 250);
+        }
+    } else {
+        playSFX('wrong');
+        alert("ยังไม่ตรงกันฮะ ลองอีกที!");
+    }
+}
+
+function renderSentenceGame(poolWords, targetArr, targetSlideNext) {
+    const interactive = document.getElementById('interactive');
+    
+    interactive.innerHTML = `
+        <div style="min-height:35px; border:2px dashed #ff9800; border-radius:10px; padding:4px; margin-bottom:6px; background:rgba(255,255,255,0.8);">
+            ${userSentence.map(w => `<span class="word-card">${w}</span>`).join(' ')}
+        </div>
+        <div>
+            ${poolWords.map(w => `<button class="word-card" onclick="addWord('${w}', ${JSON.stringify(targetArr).replace(/"/g, '&quot;')}, ${targetSlideNext}, ${JSON.stringify(poolWords).replace(/"/g, '&quot;')})">${w}</button>`).join('')}
+        </div>
+        <button onclick="resetSentence(${JSON.stringify(poolWords).replace(/"/g, '&quot;')}, ${JSON.stringify(targetArr).replace(/"/g, '&quot;')}, ${targetSlideNext})" style="font-size:11px; border:none; background:none; color:#666; cursor:pointer; margin-top:3px;">🔄 เริ่มใหม่</button>
+    `;
+
+    if (userSentence.length === targetArr.length) {
+        if (JSON.stringify(userSentence) === JSON.stringify(targetArr)) {
+            playSFX('correct');
+            setTimeout(() => {
+                alert("เก่งมาก! แต่งประโยคถูกต้องแล้ว! 👏");
+                userSentence = [];
+                currentSlide = targetSlideNext;
+                renderSlide();
+            }, 200);
+        } else {
+            playSFX('wrong');
+            setTimeout(() => {
+                alert("ลำดับประโยคยังไม่ถูกต้องฮะ!");
+                resetSentence(poolWords, targetArr, targetSlideNext);
+            }, 200);
+        }
+    }
+}
+
+function addWord(word, targetArr, targetSlideNext, poolWords) {
+    if (!userSentence.includes(word)) {
+        userSentence.push(word);
+        renderSentenceGame(poolWords, targetArr, targetSlideNext);
+    }
+}
+
+function resetSentence(poolWords, targetArr, targetSlideNext) {
+    userSentence = [];
+    renderSentenceGame(poolWords, targetArr, targetSlideNext);
+}
+</script>
+
+</body>
+</html>
